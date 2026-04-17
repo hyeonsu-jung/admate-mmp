@@ -32,10 +32,21 @@ export class RAGService {
     static async searchSimilarChunks(query: string, mmpName?: string, limit: number = 5): Promise<SearchResult[]> {
         const embedding = await this.generateEmbedding(query);
 
+        // MMP 이름 정규화 (UI 소문자 -> DB 대소문자 명칭)
+        const normalizeMmpName = (name?: string) => {
+            if (!name) return null;
+            const mapping: Record<string, string> = {
+                'appsflyer': 'AppsFlyer',
+                'airbridge': 'Airbridge',
+                'adjust': 'Adjust'
+            };
+            return mapping[name.toLowerCase()] || name;
+        };
+
         const { data, error } = await supabase.rpc('match_documents', {
             query_embedding: embedding,
             match_count: limit,
-            filter_mmp: mmpName || null,
+            filter_mmp: normalizeMmpName(mmpName),
         });
 
         if (error) {
