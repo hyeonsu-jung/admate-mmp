@@ -40,7 +40,7 @@ export default function ChatBubble({ role, content, mmpName, isLoading }: ChatBu
 
             {/* Bubble Container */}
             <div className={cn(
-                "flex flex-col max-w-[85%] sm:max-w-[75%]",
+                "flex flex-col max-w-[92%] sm:max-w-[85%]",
                 isUser ? "items-end" : "items-start"
             )}>
                 {/* MMP Badge (Assistant only) */}
@@ -53,7 +53,7 @@ export default function ChatBubble({ role, content, mmpName, isLoading }: ChatBu
 
                 {/* Message Bubble */}
                 <div className={cn(
-                    "p-5 rounded-2xl shadow-lg leading-relaxed text-[15px]",
+                    "p-5 rounded-2xl shadow-lg leading-relaxed text-[15px] break-words overflow-hidden",
                     isUser
                         ? "bg-primary/20 border border-primary/30 rounded-tr-none text-blue-50"
                         : "bg-[#f8fafc] border border-slate-200 rounded-tl-none text-slate-800" // Light surface for Assistant
