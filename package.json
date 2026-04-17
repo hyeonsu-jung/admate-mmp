@@ -7,12 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "crawl:appsflyer": "node --env-file=.env -r ts-node/register src/crawlers/appsflyer.ts",
-    "crawl:airbridge": "node --env-file=.env -r ts-node/register src/crawlers/airbridge.ts",
-    "crawl:adjust": "node --env-file=.env -r ts-node/register src/crawlers/adjust.ts",
-    "crawl:all": "node --env-file=.env -r ts-node/register src/index.ts",
-    "backfill:chunks": "node --env-file=.env -r ts-node/register src/scripts/backfill-chunks.ts",
-    "embed:chunks": "node --env-file=.env -r ts-node/register src/scripts/embed-chunks.ts",
+    "crawl:appsflyer": "node --env-file=.env --import tsx src/crawlers/appsflyer.ts",
+    "crawl:airbridge": "node --env-file=.env --import tsx src/crawlers/airbridge.ts",
+    "crawl:adjust": "node --env-file=.env --import tsx src/crawlers/adjust.ts",
+    "crawl:all": "node --env-file=.env --import tsx src/index.ts",
+    "backfill:chunks": "node --env-file=.env --import tsx src/scripts/backfill-chunks.ts",
+    "embed:chunks": "node --env-file=.env --import tsx src/scripts/embed-chunks.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -38,6 +38,7 @@
     "postcss": "^8.4.33",
     "tailwindcss": "^3.4.1",
     "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.3.3"
   }
 }

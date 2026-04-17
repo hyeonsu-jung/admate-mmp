@@ -2,7 +2,7 @@ import OpenAI from 'openai';
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_EMBEDDING_API_KEY });
 
-const MODEL = 'text-embedding-3-small';
+const MODEL = 'text-embedding-3-large';
 const BATCH_SIZE = 100;
 const RETRY_LIMIT = 3;
 const RETRY_DELAY_MS = 2000;
