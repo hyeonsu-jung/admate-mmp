@@ -1,8 +1,9 @@
 'use client';
 
+import React, { createContext, useContext } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { User, Bot, AlertCircle, Info, CheckCircle2 } from 'lucide-react';
+import { User, Bot, AlertCircle, Info, CheckCircle2, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -10,6 +11,9 @@ import { twMerge } from 'tailwind-merge';
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
+
+// 리스트 깊이를 추적하기 위한 컨텍스트
+const ListDepthContext = createContext(0);
 
 interface ChatBubbleProps {
     role: 'user' | 'assistant';
@@ -68,23 +72,47 @@ export default function ChatBubble({ role, content, mmpName, isLoading }: ChatBu
                                 h2: ({ node, ...props }) => <h2 className="text-lg font-bold mb-3 mt-4 text-slate-900" {...props} />,
                                 h3: ({ node, ...props }) => <h3 className="text-md font-bold mb-2 mt-4 text-slate-800" {...props} />,
                                 p: ({ node, ...props }) => <p className="mb-4 last:mb-0" {...props} />,
-                                ul: ({ node, ...props }) => <ul className="space-y-2 mb-4 list-none" {...props} />,
-                                ol: ({ node, ...props }) => <ol className="space-y-3 mb-4 list-none" {...props} />,
-                                li: ({ node, ordered, index, ...props }: any) => (
-                                    <li className="flex gap-3 items-start group">
-                                        {ordered ? (
-                                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-[11px] font-bold shrink-0 mt-0.5">
-                                                {index + 1}
-                                            </span>
-                                        ) : (
-                                            <CheckCircle2 size={16} className="text-primary mt-1 shrink-0" />
-                                        )}
-                                        <div className="flex-1 text-slate-700 group-hover:text-slate-900 transition-colors">
-                                            {props.children}
-                                        </div>
-                                    </li>
-                                ),
-                                strong: ({ node, ...props }) => <strong className="font-bold text-slate-900" {...props} />,
+                                ul: ({ node, ...props }: any) => {
+                                    const depth = useContext(ListDepthContext);
+                                    return (
+                                        <ListDepthContext.Provider value={depth + 1}>
+                                            <ul className={cn("space-y-2 mb-4 list-none", depth > 0 && "mt-2 ml-4")} {...props} />
+                                        </ListDepthContext.Provider>
+                                    );
+                                },
+                                ol: ({ node, ...props }: any) => {
+                                    const depth = useContext(ListDepthContext);
+                                    return (
+                                        <ListDepthContext.Provider value={depth + 1}>
+                                            <ol className={cn("space-y-3 mb-4 list-none", depth > 0 && "mt-2 ml-4")} {...props} />
+                                        </ListDepthContext.Provider>
+                                    );
+                                },
+                                li: ({ node, ordered, index, ...props }: any) => {
+                                    const depth = useContext(ListDepthContext);
+                                    const isTopLevel = depth === 1;
+
+                                    return (
+                                        <li className={cn("flex gap-3 items-start group", isTopLevel ? "mt-4 first:mt-0" : "mt-1")}>
+                                            {ordered ? (
+                                                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-[11px] font-bold shrink-0 mt-0.5 shadow-sm">
+                                                    {index + 1}
+                                                </span>
+                                            ) : isTopLevel ? (
+                                                <CheckCircle2 size={18} className="text-primary mt-1 shrink-0" />
+                                            ) : (
+                                                <div className="w-1.5 h-1.5 rounded-full bg-slate-300 mt-2.5 ml-2 shrink-0 group-hover:bg-primary transition-colors" />
+                                            )}
+                                            <div className={cn(
+                                                "flex-1 transition-colors",
+                                                isTopLevel ? "text-slate-900 font-bold" : "text-slate-600 font-medium text-[14px]"
+                                            )}>
+                                                {props.children}
+                                            </div>
+                                        </li>
+                                    );
+                                },
+                                strong: ({ node, ...props }) => <strong className="font-bold text-slate-950" {...props} />,
                                 code: ({ node, inline, ...props }: any) => (
                                     inline
                                         ? <code className="bg-slate-100 px-1.5 py-0.5 rounded text-sm text-pink-600 font-mono" {...props} />
