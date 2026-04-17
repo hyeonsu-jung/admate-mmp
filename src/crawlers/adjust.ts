@@ -37,6 +37,8 @@ export async function crawlAdjust(): Promise<RawArticle[]> {
   const queue: string[] = [
     BASE_URL,
     'https://help.adjust.com/ko/article/getting-started-with-adjust',
+    'https://help.adjust.com/ko/article/adjust-suite-overview',
+    'https://help.adjust.com/ko/article/integration-overview',
     'https://help.adjust.com/ko/marketer',
     'https://help.adjust.com/ko/suite',
     'https://help.adjust.com/ko/operator',
@@ -66,12 +68,15 @@ export async function crawlAdjust(): Promise<RawArticle[]> {
           if (content) break;
         }
 
-        if (content && isContentPage(url)) {
-          const title = await page.title();
-          const docTitle = title.replace(/\s*[-|]\s*Adjust.*$/i, '').trim();
-          const plainContent = extractText(content);
+        const plainContent = extractText(content);
+        const isContent = isContentPage(url);
+        const isValid = isValidContent(plainContent);
 
-          if (isValidContent(plainContent)) {
+        if (content && isContent) {
+          if (isValid) {
+            const title = await page.title();
+            const docTitle = title.replace(/\s*[-|]\s*Adjust.*$/i, '').trim();
+
             // 점진적 저장: 발견 즉시 DB 반영
             const doc: MmpDocument = {
               title: docTitle,
@@ -97,6 +102,8 @@ export async function crawlAdjust(): Promise<RawArticle[]> {
               articles.push({ title: docTitle, body: content, url, mmp_name: 'Adjust' });
               console.log(`[Adjust] ✅ 수집 및 저장 완료: ${url} (누적 ${articles.length}건)`);
             }
+          } else {
+            console.log(`[Adjust] ⚠️ 콘텐츠 유효성 미달 (길이: ${plainContent.length}): ${url}`);
           }
         }
 
@@ -113,18 +120,20 @@ export async function crawlAdjust(): Promise<RawArticle[]> {
                 }
               })
               .filter(Boolean),
-          'https://help.adjust.com'
+          url // 현재 페이지 URL을 Base로 사용
         );
 
         console.log(`[Adjust] ${url} 방문 완료 (발견된 링크: ${links.length}개)`);
         for (const link of links) {
           const norm = normalizeUrl(link);
-          if (
-            !visited.has(norm) &&
-            norm.startsWith('https://help.adjust.com/ko') &&
-            !norm.includes('#')
-          ) {
-            queue.push(norm);
+          const fixedNorm = norm.replace('help.adjust.com/en/', 'help.adjust.com/ko/');
+          const isTargetDomain = fixedNorm.startsWith('https://help.adjust.com/ko');
+
+          if (!visited.has(fixedNorm) && isTargetDomain && !fixedNorm.includes('#')) {
+            // 중복 큐잉 방지
+            visited.add(fixedNorm);
+            console.log(`[Adjust] Queueing: ${fixedNorm}`);
+            queue.push(fixedNorm);
           }
         }
       } catch (err) {

@@ -1,6 +1,6 @@
 import { parse } from 'node-html-parser';
 
-const MIN_CONTENT_LENGTH = 100;
+const MIN_CONTENT_LENGTH = 50;
 
 export function extractText(html: string): string {
   const root = parse(html);

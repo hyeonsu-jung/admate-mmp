@@ -42,7 +42,12 @@ export async function crawlAirbridge(): Promise<RawArticle[]> {
 
   const browser = await chromium.launch({ headless: true });
   const visited = new Set<string>();
-  const queue: string[] = [BASE_URL];
+  const queue: string[] = [
+    BASE_URL,
+    'https://help.airbridge.io/ko/supports/integrations',
+    'https://help.airbridge.io/ko/references/tracking-link',
+    'https://help.airbridge.io/ko/deeplink-guides/tracking-link-structure-and-parameters'
+  ];
   const articles: RawArticle[] = [];
 
   try {
@@ -111,12 +116,13 @@ export async function crawlAirbridge(): Promise<RawArticle[]> {
                 }
               })
               .filter(Boolean),
-          'https://help.airbridge.io'
+          url // 현재 페이지 URL을 Base로 사용
         );
 
         for (const link of links) {
           const norm = normalizeUrl(link);
           if (!visited.has(norm) && isSameDomain(norm, 'https://help.airbridge.io') && norm.includes('/ko')) {
+            visited.add(norm);
             queue.push(norm);
           }
         }
@@ -143,7 +149,7 @@ export async function crawlAndSaveAirbridge(): Promise<void> {
 
 if (require.main === module) {
   crawlAndSaveAirbridge().catch(err => {
-    console.error(err);
+    console.error(' [CRITICAL ERROR] ', err);
     process.exit(1);
   });
 }
