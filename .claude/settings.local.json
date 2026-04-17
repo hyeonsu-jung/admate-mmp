@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh auth *)",
+      "Bash(git --version)",
+      "Bash(git config *)",
+      "Bash(cmdkey /list)",
+      "Bash(npm --version)",
+      "Bash(npm install *)",
+      "Bash(npx ts-node *)",
+      "Bash(node --env-file=.env -e \"console.log\\(process.env.SUPABASE_URL ? 'OK' : 'MISSING'\\)\")",
+      "Bash(npm run *)",
+      "Bash(supabase --version)",
+      "Bash(psql --version)"
+    ]
+  }
+}

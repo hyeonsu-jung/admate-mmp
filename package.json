@@ -1,0 +1,41 @@
+{
+  "name": "admate-mmp",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "crawl:appsflyer": "node --env-file=.env -r ts-node/register src/crawlers/appsflyer.ts",
+    "crawl:airbridge": "node --env-file=.env -r ts-node/register src/crawlers/airbridge.ts",
+    "crawl:adjust": "node --env-file=.env -r ts-node/register src/crawlers/adjust.ts",
+    "crawl:all": "node --env-file=.env -r ts-node/register src/index.ts",
+    "backfill:chunks": "node --env-file=.env -r ts-node/register src/scripts/backfill-chunks.ts",
+    "embed:chunks": "node --env-file=.env -r ts-node/register src/scripts/embed-chunks.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^14.2.18",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@supabase/supabase-js": "^2.39.0",
+    "openai": "^6.34.0",
+    "lucide-react": "^0.312.0",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.6.0",
+    "framer-motion": "^11.18.2",
+    "node-html-parser": "^6.1.13",
+    "playwright": "^1.43.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
+    "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.33",
+    "tailwindcss": "^3.4.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}

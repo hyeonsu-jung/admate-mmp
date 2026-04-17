@@ -1,0 +1,79 @@
+name: MMP RAG Crawler
+
+on:
+  # 매주 월요일 오전 2시 (KST) = UTC 17:00 일요일
+  schedule:
+    - cron: '0 17 * * 0'
+  # 수동 실행 (target 선택 가능)
+  workflow_dispatch:
+    inputs:
+      target:
+        description: '크롤링 대상 (appsflyer | airbridge | adjust | all)'
+        required: false
+        default: 'all'
+
+jobs:
+  crawl-appsflyer:
+    name: AppsFlyer (Zendesk API)
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.target == 'appsflyer' || github.event.inputs.target == 'all' || github.event_name == 'schedule' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Run AppsFlyer crawler
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CRAWL_TARGET: appsflyer
+        run: npm run crawl:appsflyer
+
+  crawl-airbridge:
+    name: Airbridge (BFS + Playwright)
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.target == 'airbridge' || github.event.inputs.target == 'all' || github.event_name == 'schedule' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+      - run: npx playwright install chromium --with-deps
+
+      - name: Run Airbridge crawler
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CRAWL_TARGET: airbridge
+        run: npm run crawl:airbridge
+
+  crawl-adjust:
+    name: Adjust (BFS + Playwright)
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.target == 'adjust' || github.event.inputs.target == 'all' || github.event_name == 'schedule' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+      - run: npx playwright install chromium --with-deps
+
+      - name: Run Adjust crawler
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CRAWL_TARGET: adjust
+        run: npm run crawl:adjust
