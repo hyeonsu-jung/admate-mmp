@@ -6,7 +6,7 @@ import { chunkText } from '../utils/chunker';
 
 const BASE_URL = 'https://help.adjust.com/ko';
 const RATE_LIMIT_MS = 500;
-const CONTENT_SELECTORS = ['.article-body', 'article', 'main', '.content', '#main-content'];
+const CONTENT_SELECTORS = ['article', '.article-content', '.article-body', 'main', '.content', '#main-content'];
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -24,7 +24,9 @@ function normalizeUrl(url: string): string {
 }
 
 function isContentPage(url: string): boolean {
-  return /\/ko\/(article|suite)\/.+/.test(url);
+  // /ko/ 경로를 포함하고 루트 페이지가 아니면 수집 대상으로 간주
+  const u = new URL(url);
+  return u.pathname.startsWith('/ko/') && u.pathname !== '/ko' && u.pathname !== '/ko/';
 }
 
 export async function crawlAdjust(): Promise<RawArticle[]> {
@@ -32,7 +34,14 @@ export async function crawlAdjust(): Promise<RawArticle[]> {
 
   const browser = await chromium.launch({ headless: true });
   const visited = new Set<string>();
-  const queue: string[] = [BASE_URL];
+  const queue: string[] = [
+    BASE_URL,
+    'https://help.adjust.com/ko/article/getting-started-with-adjust',
+    'https://help.adjust.com/ko/marketer',
+    'https://help.adjust.com/ko/suite',
+    'https://help.adjust.com/ko/operator',
+    'https://help.adjust.com/ko/mobile-app'
+  ];
   const articles: RawArticle[] = [];
 
   try {
@@ -45,23 +54,50 @@ export async function crawlAdjust(): Promise<RawArticle[]> {
 
       const page = await browser.newPage();
       try {
-        await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+        // 동적 렌더링 대기
+        await page.waitForSelector('article, .article-content, .article-body, main', { timeout: 10000 }).catch(() => { });
 
         let content = '';
-        for (const selector of CONTENT_SELECTORS) {
+        const selectors = ['article', '.article-content', '.article-body', 'div[class*="ArticleBody"]', 'main'];
+        for (const selector of selectors) {
           content = await page.$eval(selector, el => (el as HTMLElement).innerHTML).catch(() => '');
           if (content) break;
         }
 
         if (content && isContentPage(url)) {
           const title = await page.title();
-          articles.push({
-            title: title.replace(/\s*[-|]\s*Adjust.*$/i, '').trim(),
-            body: content,
-            url,
-            mmp_name: 'Adjust',
-          });
-          console.log(`[Adjust] 수집: ${url} (${articles.length}건)`);
+          const docTitle = title.replace(/\s*[-|]\s*Adjust.*$/i, '').trim();
+          const plainContent = extractText(content);
+
+          if (isValidContent(plainContent)) {
+            // 점진적 저장: 발견 즉시 DB 반영
+            const doc: MmpDocument = {
+              title: docTitle,
+              content: plainContent,
+              url,
+              mmp_name: 'Adjust',
+              crawled_at: new Date().toISOString(),
+            };
+
+            const urlToId = await upsertDocuments([doc]);
+            const docId = urlToId.get(url);
+
+            if (docId) {
+              const chunkRows: ChunkRow[] = chunkText(plainContent).map(c => ({
+                document_id: docId,
+                chunk_index: c.chunk_index,
+                content: c.content,
+                url,
+                title: docTitle,
+                mmp_name: 'Adjust',
+              }));
+              await upsertChunks(chunkRows);
+              articles.push({ title: docTitle, body: content, url, mmp_name: 'Adjust' });
+              console.log(`[Adjust] ✅ 수집 및 저장 완료: ${url} (누적 ${articles.length}건)`);
+            }
+          }
         }
 
         // 동일 도메인 한국어 링크 수집
@@ -80,6 +116,7 @@ export async function crawlAdjust(): Promise<RawArticle[]> {
           'https://help.adjust.com'
         );
 
+        console.log(`[Adjust] ${url} 방문 완료 (발견된 링크: ${links.length}개)`);
         for (const link of links) {
           const norm = normalizeUrl(link);
           if (
@@ -107,41 +144,8 @@ export async function crawlAdjust(): Promise<RawArticle[]> {
 }
 
 export async function crawlAndSaveAdjust(): Promise<void> {
-  const raw = await crawlAdjust();
-  const crawled_at = new Date().toISOString();
-
-  const docs: MmpDocument[] = raw
-    .map(a => ({
-      title: a.title,
-      content: extractText(a.body),
-      url: a.url,
-      mmp_name: a.mmp_name,
-      crawled_at,
-    }))
-    .filter(d => isValidContent(d.content));
-
-  console.log(`[Adjust] 품질 필터 후: ${docs.length}건 → documents 저장 시작`);
-  const urlToId = await upsertDocuments(docs);
-
-  const chunkRows: ChunkRow[] = [];
-  for (const doc of docs) {
-    const docId = urlToId.get(doc.url);
-    if (!docId) continue;
-    for (const chunk of chunkText(doc.content)) {
-      chunkRows.push({
-        document_id: docId,
-        chunk_index: chunk.chunk_index,
-        content: chunk.content,
-        url: doc.url,
-        title: doc.title,
-        mmp_name: doc.mmp_name,
-      });
-    }
-  }
-
-  console.log(`[Adjust] 청크 생성: ${chunkRows.length}건 → chunks 저장 시작`);
-  await upsertChunks(chunkRows);
-  console.log('[Adjust] 완료');
+  await crawlAdjust();
+  console.log('[Adjust] 전체 작업 완료');
 }
 
 if (require.main === module) {

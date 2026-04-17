@@ -32,7 +32,9 @@ function normalizeUrl(url: string): string {
 }
 
 function isContentPage(url: string): boolean {
-  return /\/(guides|developers|references|articles|ko)\/.+/.test(url);
+  // /ko/ 경로를 포함하고 루트 페이지가 아니면 수집 대상으로 간주
+  const u = new URL(url);
+  return u.pathname.includes('/ko/') && u.pathname !== '/ko' && u.pathname !== '/ko/';
 }
 
 export async function crawlAirbridge(): Promise<RawArticle[]> {
@@ -53,7 +55,7 @@ export async function crawlAirbridge(): Promise<RawArticle[]> {
 
       const page = await browser.newPage();
       try {
-        await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
         // 본문 추출 — 선택자 순서대로 시도
         let content = '';
@@ -64,13 +66,36 @@ export async function crawlAirbridge(): Promise<RawArticle[]> {
 
         if (content && isContentPage(url)) {
           const title = await page.title();
-          articles.push({
-            title: title.replace(' - Airbridge Help Center', '').trim(),
-            body: content,
-            url,
-            mmp_name: 'Airbridge',
-          });
-          console.log(`[Airbridge] 수집: ${url} (${articles.length}건)`);
+          const docTitle = title.replace(' - Airbridge Help Center', '').trim();
+          const plainContent = extractText(content);
+
+          if (isValidContent(plainContent)) {
+            // 점진적 저장: 발견 즉시 DB 반영
+            const doc: MmpDocument = {
+              title: docTitle,
+              content: plainContent,
+              url,
+              mmp_name: 'Airbridge',
+              crawled_at: new Date().toISOString(),
+            };
+
+            const urlToId = await upsertDocuments([doc]);
+            const docId = urlToId.get(url);
+
+            if (docId) {
+              const chunkRows: ChunkRow[] = chunkText(plainContent).map(c => ({
+                document_id: docId,
+                chunk_index: c.chunk_index,
+                content: c.content,
+                url,
+                title: docTitle,
+                mmp_name: 'Airbridge',
+              }));
+              await upsertChunks(chunkRows);
+              articles.push({ title: docTitle, body: content, url, mmp_name: 'Airbridge' });
+              console.log(`[Airbridge] ✅ 수집 및 저장 완료: ${url} (누적 ${articles.length}건)`);
+            }
+          }
         }
 
         // 동일 도메인 링크 수집
@@ -112,41 +137,8 @@ export async function crawlAirbridge(): Promise<RawArticle[]> {
 }
 
 export async function crawlAndSaveAirbridge(): Promise<void> {
-  const raw = await crawlAirbridge();
-  const crawled_at = new Date().toISOString();
-
-  const docs: MmpDocument[] = raw
-    .map(a => ({
-      title: a.title,
-      content: extractText(a.body),
-      url: a.url,
-      mmp_name: a.mmp_name,
-      crawled_at,
-    }))
-    .filter(d => isValidContent(d.content));
-
-  console.log(`[Airbridge] 품질 필터 후: ${docs.length}건 → documents 저장 시작`);
-  const urlToId = await upsertDocuments(docs);
-
-  const chunkRows: ChunkRow[] = [];
-  for (const doc of docs) {
-    const docId = urlToId.get(doc.url);
-    if (!docId) continue;
-    for (const chunk of chunkText(doc.content)) {
-      chunkRows.push({
-        document_id: docId,
-        chunk_index: chunk.chunk_index,
-        content: chunk.content,
-        url: doc.url,
-        title: doc.title,
-        mmp_name: doc.mmp_name,
-      });
-    }
-  }
-
-  console.log(`[Airbridge] 청크 생성: ${chunkRows.length}건 → chunks 저장 시작`);
-  await upsertChunks(chunkRows);
-  console.log('[Airbridge] 완료');
+  await crawlAirbridge();
+  console.log('[Airbridge] 전체 작업 완료');
 }
 
 if (require.main === module) {
