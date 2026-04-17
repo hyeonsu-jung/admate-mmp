@@ -10,11 +10,14 @@ export const runtime = 'edge';
 
 export async function POST(req: NextRequest) {
     try {
-        const { messages, mmpName } = await req.json();
+        const { messages, mmpName: requestedMmp } = await req.json();
         const lastMessage = messages[messages.length - 1].content;
 
         // 1. 관련 컨텍스트 검색
-        const searchResults = await RAGService.searchSimilarChunks(lastMessage, mmpName);
+        const searchResults = await RAGService.searchSimilarChunks(lastMessage, requestedMmp);
+
+        // 검색 데이터에서 출처(MMP) 추출 (첫 번째 결과 기준)
+        const detectedMmp = searchResults.length > 0 ? searchResults[0].mmp_name : requestedMmp || 'MMP';
 
         // 2. 프롬프트 구성
         const prompt = RAGService.buildPrompt(lastMessage, searchResults);
@@ -43,10 +46,12 @@ export async function POST(req: NextRequest) {
             },
         });
 
+        // 출처 정보를 헤더에 포함하여 전달
         return new Response(stream, {
             headers: {
                 'Content-Type': 'text/plain; charset=utf-8',
                 'Cache-Control': 'no-cache',
+                'x-mmp-source': detectedMmp,
             },
         });
     } catch (error: any) {
